@@ -1,0 +1,61 @@
+services:
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: library_management_development
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    depends_on:
+      - redis
+    healthcheck:  
+      test: ["CMD", "mysqladmin", "ping", "--silent"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 10s
+
+  phpmyadmin:
+    image: phpmyadmin
+    environment:
+      PMA_HOST: db
+      PMA_USER: root
+      PMA_PASSWORD: root_password
+    ports:
+      - "8080:80"
+    depends_on:
+      - db
+
+  app:
+    image: minhmatmong/librarails:latest  # Change this to your DockerHub image
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "mysql2://root:root_password@db/library_management_development"
+      RAILS_ENV: development
+      REDIS_URL: "redis://redis:6379/1"
+      # Mail configuration
+      MAIL_ADDRESS: "sandbox.smtp.mailtrap.io"
+      MAIL_PORT: 2525
+      MAIL_USERNAME: "4ab7e1ee02f45b"
+      MAIL_PASSWORD: "93c4347b024a22"
+
+  tailwind:
+    image: minhmatmong/librarails:latest  # Use the same image if tailwind is part of the app
+    command: rails tailwindcss:watch
+    stdin_open: true
+    depends_on:
+      - app
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6378:6379"
+
+volumes:
+  mysql_data:
