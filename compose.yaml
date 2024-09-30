@@ -1,16 +1,21 @@
 services:
+  redis:
+    image: redis:alpine
+    ports:
+      - "6378:6379"
+
   db:
     image: mysql:8.0
     environment:
-      MYSQL_ROOT_PASSWORD: root_password
-      MYSQL_DATABASE: library_management_development
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
     ports:
       - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     depends_on:
       - redis
-    healthcheck:  
+    healthcheck:
       test: ["CMD", "mysqladmin", "ping", "--silent"]
       interval: 10s
       retries: 5
@@ -21,41 +26,43 @@ services:
     image: phpmyadmin
     environment:
       PMA_HOST: db
-      PMA_USER: root
-      PMA_PASSWORD: root_password
+      PMA_USER: ${PMA_USER}
+      PMA_PASSWORD: ${PMA_PASSWORD}
     ports:
       - "8080:80"
     depends_on:
       - db
 
   app:
-    image: minhmatmong/librarails:latest  # Change this to your DockerHub image
+    image: minhmatmong/librarails:latest
     ports:
       - "3000:3000"
     depends_on:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: "mysql2://root:root_password@db/library_management_development"
-      RAILS_ENV: development
+      HOST: "http://127.0.0.1"
+      PORT: 3000
+      MAIL_ADDRESS: ${mail_address}
+      MAIL_PORT: ${mail_port}
+      MAIL_USERNAME: ${mail_username}
+      MAIL_PASSWORD: ${mail_password}
       REDIS_URL: "redis://redis:6379/1"
-      # Mail configuration
-      MAIL_ADDRESS: "sandbox.smtp.mailtrap.io"
-      MAIL_PORT: 2525
-      MAIL_USERNAME: "4ab7e1ee02f45b"
-      MAIL_PASSWORD: "93c4347b024a22"
+    entrypoint: ["/usr/bin/entrypoint.sh"]
+    command: ["rails", "s", "-b", "0.0.0.0"]
+    develop:
+      watch:
+        - path: ./app
+          target: /app/app
+          action: sync
 
   tailwind:
-    image: minhmatmong/librarails:latest  # Use the same image if tailwind is part of the app
+    image: minhmatmong/librarails:latest
     command: rails tailwindcss:watch
     stdin_open: true
-    depends_on:
-      - app
+    volumes:
+      - "./:/app"
 
-  redis:
-    image: redis:alpine
-    ports:
-      - "6378:6379"
 
 volumes:
   mysql_data:
